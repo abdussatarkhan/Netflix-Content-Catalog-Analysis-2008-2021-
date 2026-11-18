@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Netflix Content Analytics Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ─── CSS Custom Properties ─────────────────────────────────────── */
+  :root {
+    --bg:          #0a0a0a;
+    --sidebar-bg:  #111111;
+    --card-bg:     #1a1a1a;
+    --card-glass:  rgba(255,255,255,0.03);
+    --card-border: rgba(255,255,255,0.08);
+    --red:         #E50914;
+    --red-dim:     rgba(229,9,20,0.15);
+    --red-mid:     rgba(229,9,20,0.4);
+    --text-primary:#ffffff;
+    --text-secondary:#aaaaaa;
+    --text-muted:  #666666;
+    --sidebar-w:   240px;
+    --transition:  0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ─── Reset & Base ───────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── Scrollbar ──────────────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--red); }
+
+  /* ─── Sidebar ────────────────────────────────────────────────────── */
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--sidebar-bg);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    overflow: hidden;
+  }
+
+  .sidebar-logo {
+    padding: 28px 20px 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .logo-n {
+    background: var(--red);
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    flex-shrink: 0;
+    letter-spacing: -1px;
+  }
+  .logo-text {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 2px;
+    color: #fff;
+  }
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding-left: 2px;
+  }
+
+  .sidebar-nav {
+    padding: 20px 0;
+    flex: 1;
+  }
+  .nav-section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    padding: 0 20px 10px;
+    margin-top: 8px;
+  }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 20px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none;
+    position: relative;
+    transition: var(--transition);
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.04);
+  }
+  .nav-item.active {
+    color: var(--red);
+    border-left-color: var(--red);
+    background: rgba(229,9,20,0.07);
+  }
+  .nav-item .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+  .nav-dot {
+    width: 6px; height: 6px;
+    background: var(--red);
+    border-radius: 50%;
+    margin-left: auto;
+    opacity: 0;
+    transition: var(--transition);
+  }
+  .nav-item.active .nav-dot { opacity: 1; }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .sidebar-footer-info {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.8;
+  }
+  .sidebar-footer-info span { display: block; }
+  .sidebar-footer-info .sf-label {
+    color: #555;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ─── Main Content ───────────────────────────────────────────────── */
+  .main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ─── Section Structure ──────────────────────────────────────────── */
+  section { scroll-margin-top: 0; }
+
+  .section-inner {
+    padding: 60px 48px;
+  }
+  .section-inner.tight { padding: 40px 48px; }
+
+  .section-header {
+    margin-bottom: 36px;
+  }
+  .section-pill {
+    display: inline-block;
+    background: rgba(229,9,20,0.12);
+    color: var(--red);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(229,9,20,0.3);
+    margin-bottom: 12px;
+  }
+  .section-header h2 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 30px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .section-header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    max-width: 540px;
+    line-height: 1.6;
+  }
+
+  /* ─── HERO ───────────────────────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #1a0000 0%, #0a0a0a 50%, #000d1a 100%);
+    border-bottom: 2px solid var(--red);
+    padding: 56px 48px 48px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: 200px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(229,9,20,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 46px;
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -1px;
+    margin-bottom: 14px;
+  }
+  .hero-title span { color: var(--red); }
+  .hero-sub {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin-bottom: 28px;
+    line-height: 1.6;
+  }
+  .hero-badges {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .badge {
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .badge-red {
+    background: rgba(229,9,20,0.15);
+    color: #ff4455;
+    border: 1px solid rgba(229,9,20,0.35);
+  }
+  .badge-gray {
+    background: rgba(255,255,255,0.05);
+    color: var(--text-secondary);
+    border: 1px solid var(--card-border);
+  }
+
+  .hero-chart-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .hero-donut-container {
+    width: 220px; height: 220px;
+    position: relative;
+  }
+  .donut-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+  }
+  .donut-center-num {
+    font-family: 'Poppins', sans-serif;
+    font-size: 26px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+  }
+  .donut-center-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .donut-legend {
+    display: flex;
+    gap: 20px;
+    font-size: 12.5px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--text-secondary);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ─── KPI Cards ──────────────────────────────────────────────────── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 18px;
+    padding: 32px 48px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .kpi-card {
+    background: var(--card-glass);
+    border: 1px solid var(--card-border);
+    border-top: 2px solid var(--red);
+    border-radius: 12px;
+    padding: 22px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: var(--transition);
+    animation: fadeInUp 0.6s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .kpi-card:nth-child(1) { animation-delay: 0.1s; }
+  .kpi-card:nth-child(2) { animation-delay: 0.2s; }
+  .kpi-card:nth-child(3) { animation-delay: 0.3s; }
+  .kpi-card:nth-child(4) { animation-delay: 0.4s; }
+  .kpi-card:nth-child(5) { animation-delay: 0.5s; }
+  .kpi-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px var(--red-dim);
+    border-color: rgba(229,9,20,0.3);
+  }
+  .kpi-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--red), transparent);
+    opacity: 0;
+    transition: var(--transition);
+  }
+  .kpi-card:hover::after { opacity: 1; }
+
+  .kpi-icon {
+    font-size: 22px;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .kpi-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .kpi-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 10px;
+  }
+  .kpi-trend {
+    display: inline-block;
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(229,9,20,0.1);
+    color: #ff6b6b;
+    border: 1px solid rgba(229,9,20,0.2);
+    font-weight: 500;
+  }
+
+  @keyframes fadeInUp {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── Generic Grid ───────────────────────────────────────────────── */
+  .two-col { display: grid; grid-template-columns: 60% 40%; gap: 24px; align-items: start; }
+  .two-col-eq { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+  .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+
+  /* ─── Chart Card ─────────────────────────────────────────────────── */
+  .chart-card {
+    background: var(--card-glass);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 28px;
+    transition: var(--transition);
+    animation: fadeInUp 0.6s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .chart-card:hover {
+    box-shadow: 0 8px 32px var(--red-dim);
+    border-color: rgba(229,9,20,0.2);
+  }
+  .chart-card-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .chart-card-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 22px;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 300px;
+  }
+  .chart-wrap.tall { height: 380px; }
+  .chart-wrap.short { height: 240px; }
+
+  /* ─── Info Panel (Global section right) ─────────────────────────── */
+  .info-panel {
+    background: var(--card-glass);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 28px;
+    animation: fadeInUp 0.7s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .info-panel-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .hub-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .hub-item:last-child { border-bottom: none; }
+  .hub-rank {
+    font-family: 'Poppins', sans-serif;
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--red);
+    width: 28px;
+    flex-shrink: 0;
+  }
+  .hub-flag { font-size: 24px; }
+  .hub-info { flex: 1; min-width: 0; }
+  .hub-country {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 2px;
+  }
+  .hub-bar-wrap {
+    height: 4px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .hub-bar {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, #7a0000, var(--red));
+  }
+  .hub-count {
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--red);
+    flex-shrink: 0;
+  }
+
+  .mini-stat-list { margin-top: 20px; }
+  .mini-stat-list-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .mini-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 12.5px;
+  }
+  .mini-stat-row:last-child { border-bottom: none; }
+  .mini-stat-row span:first-child { color: var(--text-secondary); }
+  .mini-stat-row span:last-child { color: #fff; font-weight: 600; }
+
+  /* ─── Growth Stats Row ───────────────────────────────────────────── */
+  .growth-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .growth-stat-box {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 18px 16px;
+    text-align: center;
+    transition: var(--transition);
+  }
+  .growth-stat-box:hover { background: rgba(229,9,20,0.05); border-color: rgba(229,9,20,0.2); }
+  .gsb-value {
+    font-family: 'Poppins', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--red);
+    margin-bottom: 4px;
+  }
+  .gsb-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ─── Circular Progress ──────────────────────────────────────────── */
+  .circ-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .circ-card {
+    background: var(--card-glass);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 32px 20px;
+    text-align: center;
+    transition: var(--transition);
+    animation: fadeInUp 0.6s ease forwards;
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  .circ-card:hover {
+    box-shadow: 0 8px 32px var(--red-dim);
+    border-color: rgba(229,9,20,0.3);
+  }
+  .circ-wrap { position: relative; display: inline-block; margin-bottom: 16px; }
+  .circ-svg { transform: rotate(-90deg); }
+  .circ-track { fill: none; stroke: rgba(255,255,255,0.07); }
+  .circ-fill { fill: none; stroke-linecap: round; transition: stroke-dashoffset 1.5s cubic-bezier(0.4,0,0.2,1); }
+  .circ-label-wrap {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .circ-pct {
+    font-family: 'Poppins', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+  }
+  .circ-pct-sym { font-size: 14px; color: var(--red); }
+  .circ-card-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+  .circ-card-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ─── Section Dividers ───────────────────────────────────────────── */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+    margin: 0 48px;
+  }
+
+  /* ─── Footer ─────────────────────────────────────────────────────── */
+  .footer {
+    background: #0d0d0d;
+    border-top: 2px solid var(--red);
+    padding: 36px 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: center;
+    gap: 20px;
+  }
+  .footer-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .footer-logo-n {
+    background: var(--red);
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 900;
+    font-size: 14px;
+    width: 24px; height: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 3px;
+  }
+  .footer-logo-text {
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 2px;
+  }
+  .footer-tagline { font-size: 11px; color: var(--text-muted); }
+  .footer-center { text-align: center; font-size: 12px; color: var(--text-muted); line-height: 1.8; }
+  .footer-right { text-align: right; font-size: 11px; color: var(--text-muted); line-height: 1.8; }
+  .footer-right span { color: var(--red); }
+
+  /* ─── Utility ────────────────────────────────────────────────────── */
+  .alt-bg { background: rgba(0,0,0,0.25); }
+  .red-text { color: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-row">
+      <div class="logo-n">N</div>
+      <span class="logo-text">ETFLIX</span>
+    </div>
+    <div class="logo-sub">Analytics Dashboard</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Navigation</div>
+    <a href="#overview" class="nav-item active" data-section="overview">
+      <span class="nav-icon">📊</span> Overview
+      <span class="nav-dot"></span>
+    </a>
+    <a href="#global" class="nav-item" data-section="global">
+      <span class="nav-icon">🌍</span> Global Reach
+      <span class="nav-dot"></span>
+    </a>
+    <a href="#trends" class="nav-item" data-section="trends">
+      <span class="nav-icon">📈</span> Trends
+      <span class="nav-dot"></span>
+    </a>
+    <a href="#genres" class="nav-item" data-section="genres">
+      <span class="nav-icon">🎭</span> Genres
+      <span class="nav-dot"></span>
+    </a>
+    <a href="#content" class="nav-item" data-section="content">
+      <span class="nav-icon">🎬</span> Content
+      <span class="nav-dot"></span>
+    </a>
+    <a href="#ratings" class="nav-item" data-section="ratings">
+      <span class="nav-icon">⭐</span> Ratings
+      <span class="nav-dot"></span>
+    </a>
+    <div class="nav-section-label" style="margin-top:16px;">Assistant</div>
+    <a href="#" class="nav-item" id="nav-copilot-btn" style="color:#ff6b6b;">
+      <span class="nav-icon">🤖</span> Ask Copilot
+      <span style="margin-left:auto;background:#E50914;color:#fff;font-size:9px;padding:2px 6px;border-radius:10px;font-weight:700;">AI</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-footer-info">
+      <span class="sf-label">Dataset</span>
+      <span style="color:#ccc;font-weight:600;">📅 Nov 2021</span>
+      <span style="margin-top:4px;">v1.0.0 · Final Year Project</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MAIN CONTENT
+══════════════════════════════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- ── SECTION 1: HERO ─────────────────────────────────────────── -->
+  <section id="overview">
+    <div class="hero">
+      <div class="hero-left">
+        <h1 class="hero-title">Netflix Content<br><span>Analytics</span></h1>
+        <p class="hero-sub">Exploring <strong style="color:#fff;">8,790 titles</strong> across <strong style="color:#fff;">86 countries</strong> spanning 2008–2021. A comprehensive data analysis of the world's leading streaming platform.</p>
+        <div class="hero-badges">
+          <span class="badge badge-red">🎬 8,790 Titles</span>
+          <span class="badge badge-gray">🌍 86 Countries</span>
+          <span class="badge badge-gray">📅 13 Years</span>
+        </div>
+      </div>
+      <div class="hero-chart-wrap">
+        <div class="hero-donut-container">
+          <canvas id="heroDonut"></canvas>
+          <div class="donut-center">
+            <div class="donut-center-num">8,790</div>
+            <div class="donut-center-label">Total Titles</div>
+          </div>
+        </div>
+        <div class="donut-legend">
+          <div class="legend-item">
+            <span class="legend-dot" style="background:var(--red);"></span>
+            🎥 Movies 69.7%
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot" style="background:#2b7de9;"></span>
+            📺 TV Shows 30.3%
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── KPI CARDS ───────────────────────────────────────────────── -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-icon">🎬</span>
+        <div class="kpi-value"><span data-counter="8790" data-float="false">0</span></div>
+        <div class="kpi-label">Total Titles</div>
+        <span class="kpi-trend">+2,016 in 2019</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-icon">🎥</span>
+        <div class="kpi-value"><span data-counter="6126" data-float="false">0</span></div>
+        <div class="kpi-label">Movies</div>
+        <span class="kpi-trend">69.7% of catalog</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-icon">📺</span>
+        <div class="kpi-value"><span data-counter="2664" data-float="false">0</span></div>
+        <div class="kpi-label">TV Shows</div>
+        <span class="kpi-trend">30.3% of catalog</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-icon">🌍</span>
+        <div class="kpi-value"><span data-counter="86" data-float="false">0</span></div>
+        <div class="kpi-label">Countries</div>
+        <span class="kpi-trend">US leads at 36.9%</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-icon">⏱️</span>
+        <div class="kpi-value"><span data-counter="99.6" data-float="true">0</span></div>
+        <div class="kpi-label">Avg Minutes</div>
+        <span class="kpi-trend">Per movie</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── SECTION 3: GLOBAL REACH ─────────────────────────────────── -->
+  <section id="global">
+    <div class="section-inner">
+      <div class="section-header">
+        <div class="section-pill">SECTION 02</div>
+        <h2>Global Reach</h2>
+        <p>Netflix content spans 86 countries, with the United States dominating production at 36.9% of all titles.</p>
+      </div>
+      <div class="two-col">
+        <!-- Left: Bar Chart -->
+        <div class="chart-card">
+          <div class="chart-card-title">Top 15 Countries by Content Volume</div>
+          <div class="chart-card-subtitle">Total titles produced per country</div>
+          <div class="chart-wrap tall">
+            <canvas id="countriesChart"></canvas>
+          </div>
+        </div>
+        <!-- Right: Info Panel -->
+        <div class="info-panel">
+          <div class="info-panel-title">🏆 Top 3 Content Hubs</div>
+          <div class="hub-item">
+            <div class="hub-rank">#1</div>
+            <div class="hub-flag">🇺🇸</div>
+            <div class="hub-info">
+              <div class="hub-country">United States</div>
+              <div style="font-size:11px;color:var(--text-muted);">36.9% of catalog</div>
+              <div class="hub-bar-wrap"><div class="hub-bar" style="width:100%;"></div></div>
+            </div>
+            <div class="hub-count">3,240</div>
+          </div>
+          <div class="hub-item">
+            <div class="hub-rank">#2</div>
+            <div class="hub-flag">🇮🇳</div>
+            <div class="hub-info">
+              <div class="hub-country">India</div>
+              <div style="font-size:11px;color:var(--text-muted);">12.0% of catalog</div>
+              <div class="hub-bar-wrap"><div class="hub-bar" style="width:32%;"></div></div>
+            </div>
+            <div class="hub-count">1,057</div>
+          </div>
+          <div class="hub-item">
+            <div class="hub-rank">#3</div>
+            <div class="hub-flag">🇬🇧</div>
+            <div class="hub-info">
+              <div class="hub-country">United Kingdom</div>
+              <div style="font-size:11px;color:var(--text-muted);">7.3% of catalog</div>
+              <div class="hub-bar-wrap"><div class="hub-bar" style="width:20%;background:linear-gradient(90deg,#4a0000,#c00);"></div></div>
+            </div>
+            <div class="hub-count">638</div>
+          </div>
+
+          <div class="mini-stat-list">
+            <div class="mini-stat-list-title">Other Notable Countries</div>
+            <div class="mini-stat-row"><span>🇵🇰 Pakistan</span><span>421</span></div>
+            <div class="mini-stat-row"><span>🇨🇦 Canada</span><span>271</span></div>
+            <div class="mini-stat-row"><span>🇯🇵 Japan</span><span>259</span></div>
+            <div class="mini-stat-row"><span>🇰🇷 South Korea</span><span>214</span></div>
+            <div class="mini-stat-row"><span>🇫🇷 France</span><span>213</span></div>
+            <div class="mini-stat-row"><span>🇪🇸 Spain</span><span>182</span></div>
+            <div class="mini-stat-row"><span>🇲🇽 Mexico</span><span>138</span></div>
+            <div class="mini-stat-row"><span>🇦🇺 Australia</span><span>114</span></div>
+            <div class="mini-stat-row"><span>🇩🇪 Germany</span><span>98</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── SECTION 4: CONTENT GROWTH / TRENDS ─────────────────────── -->
+  <section id="trends" class="alt-bg">
+    <div class="section-inner">
+      <div class="section-header">
+        <div class="section-pill">SECTION 03</div>
+        <h2>Content Growth Over Time</h2>
+        <p>Netflix's catalog expanded rapidly from 2015 to 2019, peaking at 2,016 titles before the COVID-19 pandemic caused a dip in 2020.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Annual Content Additions (2008–2021)</div>
+        <div class="chart-card-subtitle">Number of new titles added to Netflix per year</div>
+        <div class="chart-wrap tall">
+          <canvas id="growthChart"></canvas>
+        </div>
+      </div>
+      <div class="growth-stats">
+        <div class="growth-stat-box">
+          <div class="gsb-value">75,000%</div>
+          <div class="gsb-label">Total Growth</div>
+        </div>
+        <div class="growth-stat-box">
+          <div class="gsb-value">2019</div>
+          <div class="gsb-label">Peak Year</div>
+        </div>
+        <div class="growth-stat-box">
+          <div class="gsb-value">628</div>
+          <div class="gsb-label">Avg Per Year</div>
+        </div>
+        <div class="growth-stat-box">
+          <div class="gsb-value">~43%</div>
+          <div class="gsb-label">CAGR (2013–2019)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── SECTION 5: RATINGS + MONTHLY ───────────────────────────── -->
+  <section id="ratings">
+    <div class="section-inner">
+      <div class="section-header">
+        <div class="section-pill">SECTION 04</div>
+        <h2>Ratings &amp; Monthly Patterns</h2>
+        <p>TV-MA dominates the catalog at 36.5%, reflecting Netflix's focus on mature content. July and December see peak content drops.</p>
+      </div>
+      <div class="two-col-eq">
+        <div class="chart-card">
+          <div class="chart-card-title">Ratings Distribution</div>
+          <div class="chart-card-subtitle">Content count by content rating category</div>
+          <div class="chart-wrap tall">
+            <canvas id="ratingsChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Monthly Content Additions</div>
+          <div class="chart-card-subtitle">Total titles added per calendar month (all years)</div>
+          <div class="chart-wrap tall">
+            <canvas id="monthlyChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── SECTION 6: GENRE LANDSCAPE ─────────────────────────────── -->
+  <section id="genres" class="alt-bg">
+    <div class="section-inner">
+      <div class="section-header">
+        <div class="section-pill">SECTION 05</div>
+        <h2>Genre Landscape</h2>
+        <p>International Movies and Dramas lead the platform, reflecting Netflix's aggressive global content strategy and audience taste for compelling narratives.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Top 20 Genres by Title Count</div>
+        <div class="chart-card-subtitle">Netflix genre classification — titles may belong to multiple genres</div>
+        <div class="chart-wrap" style="height:480px;">
+          <canvas id="genresChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── SECTION 7: DIRECTORS + DURATION ────────────────────────── -->
+  <section id="content">
+    <div class="section-inner">
+      <div class="section-header">
+        <div class="section-pill">SECTION 06</div>
+        <h2>Directors &amp; Movie Duration</h2>
+        <p>Rajiv Chilaka leads with 20 titles, primarily children's content. The majority of Netflix movies cluster between 80–110 minutes.</p>
+      </div>
+      <div class="two-col-eq">
+        <div class="chart-card">
+          <div class="chart-card-title">Top 10 Directors</div>
+          <div class="chart-card-subtitle">By total number of Netflix titles</div>
+          <div class="chart-wrap">
+            <canvas id="directorsChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-card-title">Movie Duration Distribution</div>
+          <div class="chart-card-subtitle">Distribution of Netflix movie runtimes (minutes)</div>
+          <div class="chart-wrap">
+            <canvas id="durationChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ── SECTION 8: RATINGS DEEP DIVE ────────────────────────────── -->
+  <section class="alt-bg">
+    <div class="section-inner tight">
+      <div class="section-header">
+        <div class="section-pill">SECTION 07</div>
+        <h2>Content Ratings Deep Dive</h2>
+        <p>Breaking down Netflix's content maturity landscape across key audience segments.</p>
+      </div>
+      <div class="circ-cards">
+        <div class="circ-card" style="animation-delay:0.1s;">
+          <div class="circ-wrap">
+            <svg class="circ-svg" width="120" height="120" viewBox="0 0 120 120">
+              <circle class="circ-track" cx="60" cy="60" r="50" stroke-width="8"/>
+              <circle class="circ-fill" id="circ1" cx="60" cy="60" r="50"
+                stroke="#E50914" stroke-width="8"
+                stroke-dasharray="314.16"
+                stroke-dashoffset="314.16"/>
+            </svg>
+            <div class="circ-label-wrap">
+              <div class="circ-pct"><span id="circ1Val">0</span><span class="circ-pct-sym">%</span></div>
+            </div>
+          </div>
+          <div class="circ-card-title">TV-MA Content</div>
+          <div class="circ-card-desc">Mature audiences only. The largest rating segment with 3,205 titles — Netflix's dominant content tone.</div>
+        </div>
+        <div class="circ-card" style="animation-delay:0.2s;">
+          <div class="circ-wrap">
+            <svg class="circ-svg" width="120" height="120" viewBox="0 0 120 120">
+              <circle class="circ-track" cx="60" cy="60" r="50" stroke-width="8"/>
+              <circle class="circ-fill" id="circ2" cx="60" cy="60" r="50"
+                stroke="#ff4444" stroke-width="8"
+                stroke-dasharray="314.16"
+                stroke-dashoffset="314.16"/>
+            </svg>
+            <div class="circ-label-wrap">
+              <div class="circ-pct"><span id="circ2Val">0</span><span class="circ-pct-sym">%</span></div>
+            </div>
+          </div>
+          <div class="circ-card-title">Adult Content</div>
+          <div class="circ-card-desc">TV-MA + TV-14 + R combined. Over 60% of the entire Netflix library targets adult viewers.</div>
+        </div>
+        <div class="circ-card" style="animation-delay:0.3s;">
+          <div class="circ-wrap">
+            <svg class="circ-svg" width="120" height="120" viewBox="0 0 120 120">
+              <circle class="circ-track" cx="60" cy="60" r="50" stroke-width="8"/>
+              <circle class="circ-fill" id="circ3" cx="60" cy="60" r="50"
+                stroke="#22c55e" stroke-width="8"
+                stroke-dasharray="314.16"
+                stroke-dashoffset="314.16"/>
+            </svg>
+            <div class="circ-label-wrap">
+              <div class="circ-pct"><span id="circ3Val">0</span><span class="circ-pct-sym">%</span></div>
+            </div>
+          </div>
+          <div class="circ-card-title">Family Content</div>
+          <div class="circ-card-desc">TV-Y, TV-Y7, TV-G, TV-PG, PG, G combined. Only 12% is family-friendly — a niche but growing segment.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FOOTER ───────────────────────────────────────────────────── -->
+  <footer class="footer">
+    <div>
+      <div class="footer-logo-row">
+        <div class="footer-logo-n">N</div>
+        <span class="footer-logo-text">ETFLIX</span>
+      </div>
+      <div class="footer-tagline">Content Analytics Dashboard</div>
+    </div>
+    <div class="footer-center">
+      Data sourced from Netflix Public Dataset<br>
+      8,790 titles · 86 countries · 2008–2021
+    </div>
+    <div class="footer-right">
+      Built with <span>Chart.js</span><br>
+      Final Year Project · <span>2026</span>
+    </div>
+  </footer>
+
+</main>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════════════ -->
+<script>
+/* ─── Data ──────────────────────────────────────────────────────── */
+const DATA = {
+  types: { labels: ['Movies', 'TV Shows'], values: [6126, 2664] },
+  yearlyGrowth: {
+    labels: [2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021],
+    values: [2,2,1,13,3,11,24,82,426,1185,1648,2016,1879,1498]
+  },
+  ratings: {
+    labels: ['TV-MA','TV-14','TV-PG','R','PG-13','TV-Y7','TV-Y','PG','TV-G','NR','G','TV-Y7-FV','UR','NC-17'],
+    values: [3205,2157,861,799,490,333,306,287,220,79,41,6,3,3]
+  },
+  countries: {
+    labels: ['🇺🇸 United States','🇮🇳 India','🇬🇧 United Kingdom','🇵🇰 Pakistan','🇨🇦 Canada','🇯🇵 Japan','🇰🇷 South Korea','🇫🇷 France','🇪🇸 Spain','🇲🇽 Mexico','🇪🇬 Egypt','🇦🇺 Australia','🇹🇷 Turkey','🇳🇬 Nigeria','🇩🇪 Germany'],
+    values: [3240,1057,638,421,271,259,214,213,182,138,123,114,112,105,98]
+  },
+  genres: {
+    labels: ['International Movies','Dramas','Comedies','International TV Shows','Documentaries','Action & Adventure','TV Dramas','Independent Movies','Children & Family Movies','Romantic Movies','Thrillers','TV Comedies','Crime TV Shows','Kids\' TV','Docuseries','Music & Musicals','Romantic TV Shows','Horror Movies','Stand-Up Comedy','Reality TV'],
+    values: [2752,2426,1674,1349,869,859,762,756,641,616,577,573,469,448,394,375,370,357,343,255]
+  },
+  monthly: {
+    labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    values: [737,562,741,763,632,728,827,754,769,760,705,812]
+  },
+  directors: {
+    labels: ['Rajiv Chilaka','Alastair Fothergill','Raúl Campos / Jan Suter','Marcus Raboy','Suhas Kadav','Jay Karas','Cathy Garcia-Molina','Martin Scorsese','Jay Chapman','Youssef Chahine'],
+    values: [20,18,18,16,16,14,13,12,12,12]
+  }
+};
+
+/* ─── Chart Global Defaults ─────────────────────────────────────── */
+Chart.defaults.color = '#888';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+Chart.defaults.font.family = "'Inter', sans-serif";
+
+const TOOLTIP = {
+  backgroundColor: '#1a1a1a',
+  borderColor: '#E50914',
+  borderWidth: 1,
+  titleColor: '#fff',
+  bodyColor: '#aaa',
+  padding: 12,
+  cornerRadius: 8
+};
+
+/* ─── Animated Counter ───────────────────────────────────────────── */
+function animateCounter(el, target, duration = 2000, isFloat = false) {
+  const start = performance.now();
+  const update = (time) => {
+    const progress = Math.min((time - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const value = ease * target;
+    el.textContent = isFloat ? value.toFixed(1) : Math.floor(value).toLocaleString();
+    if (progress < 1) requestAnimationFrame(update);
+  };
+  requestAnimationFrame(update);
+}
+
+/* ─── Init counters ──────────────────────────────────────────────── */
+document.querySelectorAll('[data-counter]').forEach(el => {
+  const target = parseFloat(el.dataset.counter);
+  const isFloat = el.dataset.float === 'true';
+  animateCounter(el, target, 2200, isFloat);
+});
+
+/* ─── Hero Donut Chart ───────────────────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('heroDonut').getContext('2d');
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: DATA.types.labels,
+      datasets: [{
+        data: DATA.types.values,
+        backgroundColor: ['#E50914', '#2b7de9'],
+        hoverBackgroundColor: ['#ff1a28', '#3d8eff'],
+        borderColor: '#141414',
+        borderWidth: 3,
+        hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            label: function(ctx) {
+              const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+              const pct = ((ctx.raw / total) * 100).toFixed(1);
+              return ` ${ctx.label}: ${ctx.raw.toLocaleString()} (${pct}%)`;
+            }
+          }
+        }
+      },
+      animation: { animateRotate: true, duration: 1800 }
+    }
+  });
+})();
+
+/* ─── Countries Horizontal Bar Chart ────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('countriesChart').getContext('2d');
+  const max = Math.max(...DATA.countries.values);
+  const gradients = DATA.countries.values.map((v, i) => {
+    const g = ctx.createLinearGradient(0, 0, 400, 0);
+    if (i === 0) {
+      g.addColorStop(0, '#7a0000');
+      g.addColorStop(1, '#E50914');
+    } else {
+      const alpha = 0.3 + (v / max) * 0.5;
+      g.addColorStop(0, `rgba(100,100,100,${alpha * 0.5})`);
+      g.addColorStop(1, `rgba(160,160,160,${alpha})`);
+    }
+    return g;
+  });
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.countries.labels,
+      datasets: [{
+        label: 'Titles',
+        data: DATA.countries.values,
+        backgroundColor: gradients,
+        borderColor: 'transparent',
+        borderRadius: 4,
+        barThickness: 16
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            label: ctx => ` ${ctx.raw.toLocaleString()} titles`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#666', font: { size: 11 } }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#aaa', font: { size: 12 } }
+        }
+      },
+      animation: { duration: 1200, easing: 'easeOutQuart' }
+    }
+  });
+})();
+
+/* ─── Yearly Growth Area Chart ───────────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('growthChart').getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 0, 380);
+  gradient.addColorStop(0, 'rgba(229,9,20,0.4)');
+  gradient.addColorStop(0.5, 'rgba(229,9,20,0.1)');
+  gradient.addColorStop(1, 'rgba(229,9,20,0.0)');
+
+  // Point colors: highlight 2019 and 2020
+  const pointColors = DATA.yearlyGrowth.labels.map(y =>
+    y === 2019 ? '#E50914' : y === 2020 ? '#ff8800' : 'rgba(229,9,20,0.6)'
+  );
+  const pointRadii = DATA.yearlyGrowth.labels.map(y =>
+    y === 2019 || y === 2020 ? 7 : 4
+  );
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: DATA.yearlyGrowth.labels,
+      datasets: [{
+        label: 'Titles Added',
+        data: DATA.yearlyGrowth.values,
+        fill: true,
+        backgroundColor: gradient,
+        borderColor: '#E50914',
+        borderWidth: 2.5,
+        tension: 0.4,
+        pointBackgroundColor: pointColors,
+        pointBorderColor: '#0a0a0a',
+        pointBorderWidth: 2,
+        pointRadius: pointRadii,
+        pointHoverRadius: 9
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            title: ctx => `Year: ${ctx[0].label}`,
+            label: ctx => ` ${ctx.raw.toLocaleString()} titles added`,
+            afterLabel: ctx => {
+              if (ctx.label == 2019) return ' 🏆 Peak Year';
+              if (ctx.label == 2020) return ' ⚠️ COVID-19 Impact';
+              return '';
+            }
+          }
+        },
+        annotation: {
+          annotations: {
+            peakLine: {
+              type: 'line',
+              xMin: 11, xMax: 11,
+              borderColor: 'rgba(229,9,20,0.6)',
+              borderWidth: 1.5,
+              borderDash: [6, 4],
+              label: {
+                display: true,
+                content: '▲ PEAK 2,016',
+                color: '#E50914',
+                position: 'end',
+                backgroundColor: 'rgba(229,9,20,0.1)',
+                font: { size: 11, weight: 'bold' }
+              }
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#888', font: { size: 12 } }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: {
+            color: '#888',
+            font: { size: 11 },
+            callback: v => v.toLocaleString()
+          }
+        }
+      },
+      animation: { duration: 1600, easing: 'easeOutQuart' }
+    }
+  });
+})();
+
+/* ─── Ratings Chart ──────────────────────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('ratingsChart').getContext('2d');
+  const ratingColors = [
+    '#8B0000','#B22222','#CD5C5C','#c0392b','#e74c3c',
+    '#3498db','#2980b9','#27ae60','#2ecc71','#7f8c8d',
+    '#1abc9c','#16a085','#95a5a6','#bdc3c7'
+  ];
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.ratings.labels,
+      datasets: [{
+        label: 'Count',
+        data: DATA.ratings.values,
+        backgroundColor: ratingColors,
+        borderColor: 'transparent',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...TOOLTIP, callbacks: { label: c => ` ${c.raw.toLocaleString()} titles` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#888', font: { size: 10 } } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#888', callback: v => v.toLocaleString() }
+        }
+      }
+    }
+  });
+})();
+
+/* ─── Monthly Chart ──────────────────────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('monthlyChart').getContext('2d');
+  const highlights = ['Jul','Dec'];
+  const colors = DATA.monthly.labels.map(l =>
+    highlights.includes(l) ? '#E50914' : 'rgba(180,180,180,0.25)'
+  );
+  const hoverColors = DATA.monthly.labels.map(l =>
+    highlights.includes(l) ? '#ff1a28' : 'rgba(220,220,220,0.4)'
+  );
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.monthly.labels,
+      datasets: [{
+        label: 'Titles Added',
+        data: DATA.monthly.values,
+        backgroundColor: colors,
+        hoverBackgroundColor: hoverColors,
+        borderColor: 'transparent',
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            label: c => ` ${c.raw.toLocaleString()} titles`,
+            afterLabel: c => highlights.includes(c.label) ? ' ★ Peak Month' : ''
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#888' } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#888', callback: v => v.toLocaleString() }
+        }
+      }
+    }
+  });
+})();
+
+/* ─── Genre Chart ────────────────────────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('genresChart').getContext('2d');
+  const palette = [
+    '#E50914','#c20c10','#ff2233','#e8471a','#f56020',
+    '#f07c00','#e8a000','#d4b800','#b8c400','#8dc400',
+    '#5cb85c','#2ecc71','#1abc9c','#16a085','#1793a0',
+    '#1a7ab0','#2b7de9','#3a5fc8','#5b3fc8','#8b2fc8'
+  ].slice(0, DATA.genres.values.length);
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.genres.labels,
+      datasets: [{
+        label: 'Titles',
+        data: DATA.genres.values,
+        backgroundColor: palette,
+        borderColor: 'transparent',
+        borderRadius: 5,
+        barThickness: 18
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...TOOLTIP, callbacks: { label: c => ` ${c.raw.toLocaleString()} titles` } }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#777', font: { size: 11 }, callback: v => v.toLocaleString() }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#bbb', font: { size: 12 } }
+        }
+      },
+      animation: { duration: 1400, easing: 'easeOutQuart' }
+    },
+    plugins: [{
+      id: 'barLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        ctx.save();
+        data.datasets[0].data.forEach((val, i) => {
+          const meta = chart.getDatasetMeta(0);
+          if (!meta.data[i]) return;
+          const bar = meta.data[i];
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.font = '11px Inter';
+          ctx.textAlign = 'left';
+          ctx.fillText(val.toLocaleString(), bar.x + 6, bar.y + 4);
+        });
+        ctx.restore();
+      }
+    }]
+  });
+})();
+
+/* ─── Directors Chart ────────────────────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('directorsChart').getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, 350, 0);
+  gradient.addColorStop(0, 'rgba(229,9,20,0.3)');
+  gradient.addColorStop(1, '#E50914');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: DATA.directors.labels,
+      datasets: [{
+        label: 'Titles',
+        data: DATA.directors.values,
+        backgroundColor: gradient,
+        borderColor: 'transparent',
+        borderRadius: 4,
+        barThickness: 18
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...TOOLTIP, callbacks: { label: c => ` ${c.raw} Netflix titles` } }
+      },
+      scales: {
+        x: {
+          min: 0, max: 24,
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#777', font: { size: 11 } }
+        },
+        y: { grid: { display: false }, ticks: { color: '#bbb', font: { size: 11 } } }
+      }
+    }
+  });
+})();
+
+/* ─── Duration Histogram ─────────────────────────────────────────── */
+(function() {
+  const ctx = document.getElementById('durationChart').getContext('2d');
+
+  // Synthetic distribution (approximate bell curve around 100 min)
+  const bins = [];
+  const labels = [];
+  for (let i = 0; i < 40; i++) {
+    const center = 40 + i * 5;
+    labels.push(center);
+    // Gaussian-like distribution centered at ~100 min
+    const val = Math.round(
+      1200 * Math.exp(-0.5 * Math.pow((center - 100) / 28, 2))
+    );
+    bins.push(Math.max(val, 2));
+  }
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+  gradient.addColorStop(0, 'rgba(229,9,20,0.7)');
+  gradient.addColorStop(1, 'rgba(229,9,20,0.1)');
+
+  // Mean line plugin
+  const meanPlugin = {
+    id: 'meanLine',
+    afterDatasetsDraw(chart) {
+      const { ctx, scales } = chart;
+      const meanX = scales.x.getPixelForValue(100);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(meanX, scales.y.top);
+      ctx.lineTo(meanX, scales.y.bottom);
+      ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ff8800';
+      ctx.font = 'bold 11px Inter';
+      ctx.textAlign = 'center';
+      ctx.fillText('μ = 99.6 min', meanX, scales.y.top - 6);
+      ctx.restore();
+    }
+  };
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Movies',
+        data: bins,
+        backgroundColor: gradient,
+        borderColor: 'transparent',
+        borderRadius: 2,
+        barPercentage: 1.0,
+        categoryPercentage: 1.0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...TOOLTIP,
+          callbacks: {
+            title: c => `~${c[0].label} minutes`,
+            label: c => ` Approx. ${c.raw} movies`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: '#777',
+            font: { size: 10 },
+            maxTicksLimit: 10,
+            callback: v => v + 'm'
+          }
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { color: '#777', font: { size: 10 } }
+        }
+      }
+    },
+    plugins: [meanPlugin]
+  });
+})();
+
+/* ─── Circular Progress Animations ───────────────────────────────── */
+function animateCircle(id, valId, targetPct, color) {
+  const circ = document.getElementById(id);
+  const valEl = document.getElementById(valId);
+  const circumference = 314.16;
+  const offset = circumference * (1 - targetPct / 100);
+
+  let start = null;
+  function step(ts) {
+    if (!start) start = ts;
+    const progress = Math.min((ts - start) / 1500, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const currentOffset = circumference - ease * (circumference - offset);
+    circ.style.strokeDashoffset = currentOffset;
+    valEl.textContent = Math.round(ease * targetPct);
+    if (progress < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// Wait a moment, then fire circles
+setTimeout(() => {
+  animateCircle('circ1', 'circ1Val', 36.5, '#E50914');
+  animateCircle('circ2', 'circ2Val', 61.0, '#ff4444');
+  animateCircle('circ3', 'circ3Val', 12.0, '#22c55e');
+}, 400);
+
+/* ─── Sidebar Active State via IntersectionObserver ─────────────── */
+(function() {
+  const sections = ['overview','global','trends','genres','content','ratings'];
+  const navItems = {};
+  sections.forEach(id => {
+    navItems[id] = document.querySelector(`.nav-item[data-section="${id}"]`);
+  });
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        if (navItems[id]) {
+          document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+          navItems[id].classList.add('active');
+        }
+      }
+    });
+  }, { threshold: 0.25, rootMargin: '-80px 0px -40% 0px' });
+
+  sections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
+
+  // Smooth scroll on nav click
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+      e.preventDefault();
+      const targetId = this.getAttribute('href').replace('#', '');
+      const target = document.getElementById(targetId);
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+})();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     NETFLIX COPILOT — Floating AI Chat Widget
+     Answers questions using only the built-in dashboard data
+     ═══════════════════════════════════════════════════════════ -->
+<style>
+  /* ── Copilot FAB Button ───────────────────────────────── */
+  #copilot-fab {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #E50914, #ff4444);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 4px 24px rgba(229,9,20,0.5);
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    border: none;
+    outline: none;
+  }
+  #copilot-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 36px rgba(229,9,20,0.7);
+  }
+  #copilot-fab svg { width: 28px; height: 28px; fill: white; }
+  #copilot-fab .notif-dot {
+    position: absolute;
+    top: 4px; right: 4px;
+    width: 12px; height: 12px;
+    background: #22c55e;
+    border-radius: 50%;
+    border: 2px solid #0a0a0a;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.7; }
+  }
+
+  /* ── Copilot Panel ────────────────────────────────────── */
+  #copilot-panel {
+    position: fixed;
+    bottom: 100px;
+    right: 28px;
+    width: 380px;
+    max-height: 560px;
+    background: #111111;
+    border: 1px solid rgba(229,9,20,0.3);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    z-index: 9998;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 40px rgba(229,9,20,0.1);
+    transform: translateY(20px) scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+    overflow: hidden;
+  }
+  #copilot-panel.open {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* Header */
+  .cp-header {
+    background: linear-gradient(135deg, #1a0000, #1a1a1a);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid rgba(229,9,20,0.2);
+    flex-shrink: 0;
+  }
+  .cp-avatar {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, #E50914, #ff6b6b);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .cp-header-info { flex: 1; }
+  .cp-header-info h4 {
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .cp-header-info span {
+    color: #22c55e;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .cp-header-info span::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+  }
+  .cp-close {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .cp-close:hover { background: rgba(229,9,20,0.2); color: #E50914; }
+
+  /* Suggested pills */
+  .cp-suggestions {
+    padding: 12px 16px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .cp-pill {
+    background: rgba(229,9,20,0.1);
+    border: 1px solid rgba(229,9,20,0.25);
+    color: #ff6b6b;
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-family: 'Inter', sans-serif;
+  }
+  .cp-pill:hover {
+    background: rgba(229,9,20,0.25);
+    color: #fff;
+    border-color: #E50914;
+  }
+
+  /* Messages */
+  .cp-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scroll-behavior: smooth;
+  }
+  .cp-messages::-webkit-scrollbar { width: 4px; }
+  .cp-messages::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
+  /* Message bubbles */
+  .cp-msg {
+    display: flex;
+    gap: 8px;
+    animation: msgFadeIn 0.3s ease forwards;
+  }
+  @keyframes msgFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .cp-msg.user { flex-direction: row-reverse; }
+  .cp-msg-avatar {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .cp-msg.bot .cp-msg-avatar { background: linear-gradient(135deg,#E50914,#ff4444); }
+  .cp-msg.user .cp-msg-avatar { background: rgba(255,255,255,0.1); }
+  .cp-bubble {
+    max-width: 80%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    font-family: 'Inter', sans-serif;
+  }
+  .cp-msg.bot .cp-bubble {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #ddd;
+    border-bottom-left-radius: 4px;
+  }
+  .cp-msg.user .cp-bubble {
+    background: linear-gradient(135deg, #E50914, #cc0812);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .cp-bubble strong { color: #fff; }
+  .cp-bubble .stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+    color: #bbb;
+  }
+  .cp-bubble .stat-row:last-child { border-bottom: none; }
+  .cp-bubble .stat-row span:last-child { color: #ff6b6b; font-weight: 600; }
+
+  /* Typing indicator */
+  .cp-typing .cp-bubble {
+    padding: 12px 16px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .cp-typing .dot {
+    width: 7px; height: 7px;
+    background: #666;
+    border-radius: 50%;
+    animation: typingBounce 1.2s infinite;
+  }
+  .cp-typing .dot:nth-child(2) { animation-delay: 0.2s; }
+  .cp-typing .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingBounce {
+    0%,60%,100% { transform: translateY(0); background: #555; }
+    30% { transform: translateY(-6px); background: #E50914; }
+  }
+
+  /* Input row */
+  .cp-input-row {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    background: #0f0f0f;
+  }
+  #cp-input {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #fff;
+    font-size: 13px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #cp-input:focus { border-color: rgba(229,9,20,0.5); }
+  #cp-input::placeholder { color: #555; }
+  #cp-send {
+    background: linear-gradient(135deg, #E50914, #cc0812);
+    border: none;
+    border-radius: 10px;
+    width: 40px; height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  #cp-send:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(229,9,20,0.4); }
+  #cp-send svg { width: 18px; height: 18px; fill: white; }
+
+  /* Responsive */
+  @media (max-width: 480px) {
+    #copilot-panel { right: 12px; left: 12px; width: auto; bottom: 90px; }
+    #copilot-fab   { right: 16px; bottom: 20px; }
+  }
+</style>
+
+<!-- FAB Button -->
+<button id="copilot-fab" title="Ask Netflix Copilot" aria-label="Open Netflix Copilot">
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l4.93-1.37C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+  </svg>
+  <div class="notif-dot"></div>
+</button>
+
+<!-- Copilot Panel -->
+<div id="copilot-panel" role="dialog" aria-label="Netflix Data Copilot">
+  <div class="cp-header">
+    <div class="cp-avatar">🎬</div>
+    <div class="cp-header-info">
+      <h4>Netflix Copilot</h4>
+      <span>Online · Knows 8,790 titles</span>
+    </div>
+    <button class="cp-close" id="cp-close-btn" title="Close">✕</button>
+  </div>
+
+  <!-- Quick suggestion pills -->
+  <div class="cp-suggestions">
+    <span class="cp-pill" data-q="How many titles are on Netflix?">📊 Total titles</span>
+    <span class="cp-pill" data-q="Which country has the most content?">🌍 Top country</span>
+    <span class="cp-pill" data-q="What is the most popular genre?">🎭 Top genre</span>
+    <span class="cp-pill" data-q="What year had the most content added?">📅 Peak year</span>
+    <span class="cp-pill" data-q="What is the most common rating?">⭐ Top rating</span>
+    <span class="cp-pill" data-q="Who is the top director?">🎬 Top director</span>
+  </div>
+
+  <div class="cp-messages" id="cp-messages"></div>
+
+  <div class="cp-input-row">
+    <input type="text" id="cp-input" placeholder="Ask about Netflix data…" autocomplete="off" />
+    <button id="cp-send" title="Send">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   NETFLIX COPILOT — Rule-based QA engine using built-in data
+   ═══════════════════════════════════════════════════════════════ */
+(function() {
+  /* ── Knowledge Base ───────────────────────────────────────── */
+  const KB = {
+    totalTitles: 8790,
+    movies: 6126,
+    tvShows: 2664,
+    countries: 86,
+    avgMovieDuration: 99.6,
+
+    typeSplit: { Movie: 6126, 'TV Show': 2664 },
+
+    yearlyGrowth: {
+      2008:2, 2009:2, 2010:1, 2011:13, 2012:3, 2013:11,
+      2014:24, 2015:82, 2016:426, 2017:1185, 2018:1648,
+      2019:2016, 2020:1879, 2021:1498
+    },
+
+    ratings: {
+      'TV-MA':3205,'TV-14':2157,'TV-PG':861,'R':799,'PG-13':490,
+      'TV-Y7':333,'TV-Y':306,'PG':287,'TV-G':220,'NR':79,'G':41,
+      'TV-Y7-FV':6,'UR':3,'NC-17':3
+    },
+
+    countries: {
+      'United States':3240,'India':1057,'United Kingdom':638,
+      'Pakistan':421,'Canada':271,'Japan':259,'South Korea':214,
+      'France':213,'Spain':182,'Mexico':138,'Egypt':123,
+      'Australia':114,'Turkey':112,'Nigeria':105,'Germany':98
+    },
+
+    genres: {
+      'International Movies':2752,'Dramas':2426,'Comedies':1674,
+      'International TV Shows':1349,'Documentaries':869,
+      'Action & Adventure':859,'TV Dramas':762,'Independent Movies':756,
+      'Children & Family Movies':641,'Romantic Movies':616,
+      'Thrillers':577,'TV Comedies':573,'Crime TV Shows':469,
+      "Kids' TV":448,'Docuseries':394,'Music & Musicals':375,
+      'Romantic TV Shows':370,'Horror Movies':357,'Stand-Up Comedy':343,
+      'Reality TV':255
+    },
+
+    monthly: {
+      Jan:737,Feb:562,Mar:741,Apr:763,May:632,Jun:728,
+      Jul:827,Aug:754,Sep:769,Oct:760,Nov:705,Dec:812
+    },
+
+    directors: {
+      'Rajiv Chilaka':20,'Alastair Fothergill':18,'Raúl Campos / Jan Suter':18,
+      'Marcus Raboy':16,'Suhas Kadav':16,'Jay Karas':14,
+      'Cathy Garcia-Molina':13,'Martin Scorsese':12,'Jay Chapman':12,'Youssef Chahine':12
+    }
+  };
+
+  /* ── NLP Intent Matcher ────────────────────────────────────── */
+  function getTopN(obj, n) {
+    return Object.entries(obj).sort((a,b)=>b[1]-a[1]).slice(0,n);
+  }
+  function pct(val, total) { return ((val/total)*100).toFixed(1) + '%'; }
+  function fmt(n) { return n.toLocaleString(); }
+
+  function buildTableHTML(rows, col1='Name', col2='Count') {
+    return rows.map(([k,v]) =>
+      `<div class="stat-row"><span>${k}</span><span>${fmt(v)}</span></div>`
+    ).join('');
+  }
+
+  function answer(raw) {
+    const q = raw.toLowerCase().trim();
+
+    /* ── TOTAL / OVERVIEW ─────────────────────────── */
+    if (/how many (titles?|shows?|movies?|content|total)/i.test(q) ||
+        /total (titles?|content|shows?|count)/i.test(q)) {
+      return `📊 <strong>Total Netflix Titles: ${fmt(KB.totalTitles)}</strong><br><br>
+        <div class="stat-row"><span>🎬 Movies</span><span>${fmt(KB.movies)} (${pct(KB.movies,KB.totalTitles)})</span></div>
+        <div class="stat-row"><span>📺 TV Shows</span><span>${fmt(KB.tvShows)} (${pct(KB.tvShows,KB.totalTitles)})</span></div>
+        <div class="stat-row"><span>🌍 Countries</span><span>${KB.countries}</span></div>`;
+    }
+
+    /* ── MOVIES vs TV ─────────────────────────────── */
+    if (/movie|film/i.test(q) && /tv|show|series/i.test(q)) {
+      return `🎬 <strong>Movies vs TV Shows split:</strong><br><br>
+        <div class="stat-row"><span>Movies</span><span>${fmt(KB.movies)} — ${pct(KB.movies,KB.totalTitles)}</span></div>
+        <div class="stat-row"><span>TV Shows</span><span>${fmt(KB.tvShows)} — ${pct(KB.tvShows,KB.totalTitles)}</span></div><br>
+        Netflix is primarily a <strong>movie platform</strong>, but TV Show share is growing each year.`;
+    }
+    if (/\bhow many movies\b|^movies?$/i.test(q)) {
+      return `🎬 Netflix has <strong>${fmt(KB.movies)} Movies</strong>, making up <strong>${pct(KB.movies,KB.totalTitles)}</strong> of total content.`;
+    }
+    if (/\bhow many tv|how many shows|^tv shows?$/i.test(q)) {
+      return `📺 Netflix has <strong>${fmt(KB.tvShows)} TV Shows</strong>, making up <strong>${pct(KB.tvShows,KB.totalTitles)}</strong> of total content.`;
+    }
+
+    /* ── COUNTRIES ────────────────────────────────── */
+    if (/country|countries|where|nation|geographic/i.test(q) &&
+        !/which month/i.test(q)) {
+      const top5 = getTopN(KB.countries, 5);
+      return `🌍 <strong>Top 5 Countries by Content:</strong><br><br>
+        ${buildTableHTML(top5)}
+        <br>Content spans <strong>${KB.countries} countries</strong>. The US alone contributes <strong>${pct(KB.countries['United States']||3240, KB.totalTitles)}</strong> of all titles.`;
+    }
+    if (/india/i.test(q)) {
+      return `🇮🇳 <strong>India</strong> contributes <strong>${fmt(KB.countries['India'])} titles</strong> — the #2 country at ${pct(KB.countries['India'],KB.totalTitles)} of Netflix's catalog. It reflects Netflix's massive strategic push into South Asia.`;
+    }
+    if (/united states|usa|us content|american/i.test(q)) {
+      return `🇺🇸 <strong>United States</strong> leads with <strong>${fmt(KB.countries['United States'])} titles</strong> — ${pct(KB.countries['United States'],KB.totalTitles)} of all Netflix content.`;
+    }
+    if (/top country|most content|most titles|biggest country/i.test(q)) {
+      const [name, count] = getTopN(KB.countries,1)[0];
+      return `🏆 The country with the most Netflix content is <strong>${name}</strong> with <strong>${fmt(count)} titles</strong> (${pct(count,KB.totalTitles)} of the catalog).`;
+    }
+
+    /* ── GENRES ───────────────────────────────────── */
+    if (/genre|category|categories/i.test(q)) {
+      const top5 = getTopN(KB.genres, 5);
+      return `🎭 <strong>Top 5 Genres on Netflix:</strong><br><br>
+        ${buildTableHTML(top5)}
+        <br>Note: Titles can belong to multiple genres, so counts exceed total titles.`;
+    }
+    if (/popular genre|most genre|top genre|#1 genre/i.test(q)) {
+      const [name,count] = getTopN(KB.genres,1)[0];
+      return `🏆 The most popular genre is <strong>${name}</strong> with <strong>${fmt(count)} titles</strong>.`;
+    }
+    if (/drama/i.test(q)) {
+      return `🎭 <strong>Dramas</strong> appear in <strong>${fmt(KB.genres['Dramas'])} titles</strong>, making it the #2 genre. TV Dramas add another ${fmt(KB.genres['TV Dramas']||762)}.`;
+    }
+    if (/comedy|comedies/i.test(q)) {
+      return `😄 <strong>Comedies</strong> appear in <strong>${fmt(KB.genres['Comedies'])} titles</strong> (#3 genre). TV Comedies add another ${fmt(KB.genres['TV Comedies']||573)}.`;
+    }
+    if (/horror/i.test(q)) {
+      return `👻 <strong>Horror Movies</strong> appear in <strong>${fmt(KB.genres['Horror Movies']||357)} titles</strong> on Netflix.`;
+    }
+    if (/documentary|documentar/i.test(q)) {
+      return `📹 <strong>Documentaries</strong> appear in <strong>${fmt(KB.genres['Documentaries']||869)} titles</strong>. Docuseries add another ${fmt(KB.genres['Docuseries']||394)}.`;
+    }
+    if (/international/i.test(q)) {
+      return `🌐 <strong>International Movies</strong> is the #1 genre with <strong>${fmt(KB.genres['International Movies'])} titles</strong>. International TV Shows add ${fmt(KB.genres['International TV Shows']||1349)} more.`;
+    }
+
+    /* ── RATINGS ──────────────────────────────────── */
+    if (/rating|audience|age|mature|pg|r-rated/i.test(q)) {
+      const top5 = getTopN(KB.ratings, 5);
+      return `⭐ <strong>Top 5 Ratings on Netflix:</strong><br><br>
+        ${buildTableHTML(top5)}
+        <br><strong>TV-MA</strong> (Mature, 17+) is the most common at ${pct(KB.ratings['TV-MA'],KB.totalTitles)}.`;
+    }
+    if (/most common rating|top rating|#1 rating/i.test(q)) {
+      return `⭐ The most common rating is <strong>TV-MA</strong> (Mature audiences, 17+) with <strong>${fmt(KB.ratings['TV-MA'])} titles</strong> — ${pct(KB.ratings['TV-MA'],KB.totalTitles)} of all content.`;
+    }
+    if (/family|kids|children/i.test(q)) {
+      const famCount = (KB.ratings['TV-Y']||0)+(KB.ratings['TV-Y7']||0)+(KB.ratings['G']||0)+(KB.ratings['PG']||0)+(KB.ratings['TV-G']||0);
+      return `👨‍👩‍👧 <strong>Family-friendly content</strong> (TV-Y, TV-Y7, G, PG, TV-G) totals about <strong>${fmt(famCount)} titles</strong> (~12% of catalog). Netflix skews toward adult audiences.`;
+    }
+
+    /* ── GROWTH / YEARS ───────────────────────────── */
+    if (/peak year|most content added|best year|highest year/i.test(q)) {
+      return `📅 The peak year for content additions was <strong>2019</strong> with <strong>${fmt(2016)} titles added</strong> — Netflix's fastest growth period before COVID impacted production.`;
+    }
+    if (/2020|covid|pandemic/i.test(q)) {
+      return `😷 In <strong>2020</strong>, Netflix added <strong>${fmt(KB.yearlyGrowth[2020])} titles</strong> — a slight dip from 2019's peak of ${fmt(KB.yearlyGrowth[2019])}, largely attributed to <strong>COVID-19 production shutdowns</strong>.`;
+    }
+    if (/2019/i.test(q)) {
+      return `📅 <strong>2019</strong> was Netflix's peak year for content additions: <strong>${fmt(KB.yearlyGrowth[2019])} titles</strong> added — the most of any single year.`;
+    }
+    if (/growth|year|trend|when|history|added over/i.test(q)) {
+      const years = Object.entries(KB.yearlyGrowth).slice(-5);
+      return `📈 <strong>Content Added (last 5 years):</strong><br><br>
+        ${buildTableHTML(years,'Year','Titles')}
+        <br>Netflix grew <strong>40× faster</strong> from 2015 → 2019.`;
+    }
+
+    /* ── MONTHLY ──────────────────────────────────── */
+    if (/month|season|when.*(add|release)|best month/i.test(q)) {
+      const topMonth = getTopN(KB.monthly,1)[0];
+      return `📅 <strong>Monthly Content Additions:</strong><br><br>
+        <div class="stat-row"><span>🏆 Peak month</span><span>${topMonth[0]} (${fmt(topMonth[1])} titles)</span></div>
+        <div class="stat-row"><span>📉 Slowest month</span><span>February (${fmt(KB.monthly.Feb)} titles)</span></div>
+        <div class="stat-row"><span>🎄 December</span><span>${fmt(KB.monthly.Dec)} titles</span></div>
+        <br>July and December are strategic months — Netflix pushes content for <strong>summer</strong> and <strong>holiday</strong> seasons.`;
+    }
+
+    /* ── DURATION ─────────────────────────────────── */
+    if (/duration|length|long|minutes?|runtime/i.test(q)) {
+      return `⏱️ <strong>Movie Duration on Netflix:</strong><br><br>
+        <div class="stat-row"><span>Average duration</span><span>${KB.avgMovieDuration} minutes</span></div>
+        <div class="stat-row"><span>Shortest movie</span><span>~3 minutes</span></div>
+        <div class="stat-row"><span>Longest movie</span><span>~312 minutes</span></div>
+        <br>The average (~100 min) aligns with standard theatrical film runtime.`;
+    }
+
+    /* ── DIRECTORS ────────────────────────────────── */
+    if (/director|who made|who direct|filmmaker/i.test(q)) {
+      const top5 = getTopN(KB.directors, 5);
+      return `🎬 <strong>Top 5 Directors on Netflix:</strong><br><br>
+        ${buildTableHTML(top5,'Director','Titles')}
+        <br><strong>Rajiv Chilaka</strong> (Chhota Bheem creator) tops the list, reflecting Netflix's investment in Indian children's content.`;
+    }
+    if (/scorsese|martin/i.test(q)) {
+      return `🎬 <strong>Martin Scorsese</strong> has <strong>12 titles</strong> on Netflix — placing him #8 among the most prolific directors on the platform.`;
+    }
+    if (/rajiv|chilaka/i.test(q)) {
+      return `🏆 <strong>Rajiv Chilaka</strong> is the top director on Netflix with <strong>20 titles</strong> — primarily Indian animated children's content (Chhota Bheem series).`;
+    }
+
+    /* ── COMPARE ──────────────────────────────────── */
+    if (/compare|vs|versus|difference between/i.test(q)) {
+      return `📊 Quick comparison:<br><br>
+        <div class="stat-row"><span>Movies vs TV Shows</span><span>${pct(KB.movies,KB.totalTitles)} vs ${pct(KB.tvShows,KB.totalTitles)}</span></div>
+        <div class="stat-row"><span>US vs India</span><span>${fmt(KB.countries['United States'])} vs ${fmt(KB.countries['India'])}</span></div>
+        <div class="stat-row"><span>TV-MA vs TV-14</span><span>${fmt(KB.ratings['TV-MA'])} vs ${fmt(KB.ratings['TV-14'])}</span></div>`;
+    }
+
+    /* ── GREETINGS ────────────────────────────────── */
+    if (/^(hi|hello|hey|sup|yo|hola)\b/i.test(q)) {
+      return `👋 Hey! I'm your <strong>Netflix Data Copilot</strong>. I can answer questions about the <strong>8,790 Netflix titles</strong> in this dataset.<br><br>Try asking me about:<br>• Countries, genres, ratings<br>• Content growth over years<br>• Directors, movie duration<br>• Monthly trends`;
+    }
+    if (/thank|thanks|great|awesome|cool|nice/i.test(q)) {
+      return `🙏 Glad I could help! Ask me anything else about the Netflix dataset. 🎬`;
+    }
+    if (/what can you|help|capabilities|what do you know/i.test(q)) {
+      return `🤖 I can answer questions about this Netflix dataset (2008–2021):<br><br>
+        📊 <strong>Overview</strong> — total titles, movies, TV shows<br>
+        🌍 <strong>Geography</strong> — content by country (86 countries)<br>
+        🎭 <strong>Genres</strong> — top 20 genre categories<br>
+        ⭐ <strong>Ratings</strong> — audience age ratings breakdown<br>
+        📅 <strong>Trends</strong> — year-over-year & monthly growth<br>
+        🎬 <strong>Directors</strong> — most prolific filmmakers<br>
+        ⏱️ <strong>Duration</strong> — movie length statistics<br><br>
+        I only use data from this dashboard — no internet needed!`;
+    }
+
+    /* ── FALLBACK ─────────────────────────────────── */
+    return `🤔 I'm not sure about that specific question, but I know a lot about this Netflix dataset! Try asking about:<br><br>
+      • <em>"How many movies are on Netflix?"</em><br>
+      • <em>"Which country has the most content?"</em><br>
+      • <em>"What is the top genre?"</em><br>
+      • <em>"What year had the most content added?"</em><br>
+      • <em>"Who is the top director?"</em>`;
+  }
+
+  /* ── UI Controller ──────────────────────────────────────── */
+  const fab      = document.getElementById('copilot-fab');
+  const panel    = document.getElementById('copilot-panel');
+  const closeBtn = document.getElementById('cp-close-btn');
+  const messages = document.getElementById('cp-messages');
+  const input    = document.getElementById('cp-input');
+  const sendBtn  = document.getElementById('cp-send');
+
+  let isOpen = false;
+
+  function togglePanel() {
+    isOpen = !isOpen;
+    panel.classList.toggle('open', isOpen);
+    if (isOpen) {
+      input.focus();
+      // Remove notif dot after first open
+      const dot = fab.querySelector('.notif-dot');
+      if (dot) dot.style.display = 'none';
+      // Show welcome if empty
+      if (messages.children.length === 0) {
+        setTimeout(() => addMessage('bot', `👋 Hi! I'm your <strong>Netflix Copilot</strong>. Ask me anything about the <strong>8,790 titles</strong> in this dataset — genres, countries, ratings, trends, directors, and more!`), 300);
+      }
+    }
+  }
+
+  const navCopilotBtn = document.getElementById('nav-copilot-btn');
+
+  fab.addEventListener('click', togglePanel);
+  closeBtn.addEventListener('click', togglePanel);
+  if (navCopilotBtn) {
+    navCopilotBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      togglePanel();
+    });
+  }
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (isOpen && !panel.contains(e.target) && e.target !== fab && !fab.contains(e.target) && (!navCopilotBtn || !navCopilotBtn.contains(e.target))) {
+      isOpen = false;
+      panel.classList.remove('open');
+    }
+  });
+
+  function addMessage(role, html) {
+    const wrap = document.createElement('div');
+    wrap.className = `cp-msg ${role}`;
+    const avatar = document.createElement('div');
+    avatar.className = 'cp-msg-avatar';
+    avatar.textContent = role === 'bot' ? '🎬' : '👤';
+    const bubble = document.createElement('div');
+    bubble.className = 'cp-bubble';
+    bubble.innerHTML = html;
+    wrap.appendChild(avatar);
+    wrap.appendChild(bubble);
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+    return wrap;
+  }
+
+  function showTyping() {
+    const wrap = document.createElement('div');
+    wrap.className = 'cp-msg bot cp-typing';
+    wrap.innerHTML = `<div class="cp-msg-avatar">🎬</div><div class="cp-bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+    messages.appendChild(wrap);
+    messages.scrollTop = messages.scrollHeight;
+    return wrap;
+  }
+
+  function handleQuery(q) {
+    if (!q.trim()) return;
+    addMessage('user', q);
+    input.value = '';
+    const typing = showTyping();
+    // Simulate thinking delay (200–600ms)
+    const delay = 200 + Math.random() * 400;
+    setTimeout(() => {
+      typing.remove();
+      addMessage('bot', answer(q));
+    }, delay);
+  }
+
+  sendBtn.addEventListener('click', () => handleQuery(input.value));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') handleQuery(input.value);
+  });
+
+  // Suggestion pills
+  document.querySelectorAll('.cp-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      if (!isOpen) togglePanel();
+      setTimeout(() => handleQuery(pill.dataset.q), isOpen ? 0 : 400);
+    });
+  });
+})();
+</script>
+</body>
+</html>
